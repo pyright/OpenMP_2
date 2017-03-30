@@ -141,8 +141,11 @@ static void generateInput(const int nbodies, Data* const data)
 /*** compute force ************************************************************/
 /******************************************************************************/
 
+
+//////EDITED [Pragma added]
 static void forceCalculation(const int nbodies, Data* const data, const int step, const float dthf, const float epssq)
 {
+  # pragma omp for 
   for (int i = 0; i < nbodies; i++) {
     const float px = data[i].posx;
     const float py = data[i].posy;
@@ -180,9 +183,13 @@ static void forceCalculation(const int nbodies, Data* const data, const int step
 /*** advance bodies ***********************************************************/
 /******************************************************************************/
 
+
+//////EDITED [Pragma added]
 static void integration(const int nbodies, Data* const data, const float dthf)
 {
   const float dtime = dthf * 2.0f;
+  
+  # pragma omp for
   for (int i = 0; i < nbodies; i++) {
     const float dvelx = data[i].accx * dthf;
     const float dvely = data[i].accy * dthf;
@@ -206,16 +213,22 @@ static void integration(const int nbodies, Data* const data, const float dthf)
 
 int main(int argc, char *argv[])
 {
-  printf("N-body v1.0 [serial]\n");
+  printf("N-body v1.0 [OpenMP]\n");
 
   // check command line
-  if (argc != 3) {fprintf(stderr, "usage: %s number_of_bodies number_of_timesteps\n", argv[0]); exit(-1);}
+  ///////////////////////////////////////////////////edit to line below [3 changed to 4]
+  if (argc != 4) {fprintf(stderr, "usage: %s number_of_bodies number_of_timesteps number_of_threads\n", argv[0]); exit(-1);}
   const int nbodies = atoi(argv[1]);
   if (nbodies < 10) {fprintf(stderr, "error: number_of_bodies must be at least 10\n"); exit(-1);}
   const int timesteps = atoi(argv[2]);
   if (timesteps < 1) {fprintf(stderr, "error: number_of_timesteps must be at least 1\n"); exit(-1);}
-  printf("simulating %d bodies for %d time steps\n", nbodies, timesteps);
+  const int thread_count = atoi(argv[3]);
+  if (thread_count < 1) {fprintf(stderr, "error: thread_count must be at least 1\n"); exit(-1);}
+  printf("simulating %d bodies for %d time steps with %d threads\n", nbodies, timesteps, thread_count);
 
+  ///printf("The Master has %d threads", omp_get_num_threads());??????
+  
+  
   // allocate and initialize data
   const float dthf = 0.025f * 0.5f;
   const float epssq = 0.05f * 0.05f;
@@ -227,6 +240,7 @@ int main(int argc, char *argv[])
   gettimeofday(&start, NULL);
 
   // compute result for each time step
+  # pragma omp parallel num_threads(thread_count)
   for (int step = 0; step < timesteps; step++) {
     forceCalculation(nbodies, data, step, dthf, epssq);
     integration(nbodies, data, dthf);
